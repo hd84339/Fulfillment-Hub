@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getExceptions, resolveException } from '../api';
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock, User, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -33,9 +33,9 @@ export default function Exceptions() {
         <p className="text-slate-500 mt-1">Manage operational exceptions</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {loading ? (
-          <div className="p-12 flex justify-center"><AlertTriangle className="animate-pulse text-amber-500 w-8 h-8 opacity-50" /></div>
+          <div className="p-12 flex justify-center"><Clock className="animate-pulse text-amber-500 w-8 h-8 opacity-50" /></div>
         ) : exceptions.length === 0 ? (
           <div className="bg-white p-12 rounded-2xl text-center shadow-sm border border-slate-200">
             <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
@@ -45,18 +45,42 @@ export default function Exceptions() {
         ) : (
           exceptions.map(exc => (
             <div key={exc.id} className={clsx(
-              "bg-white rounded-2xl p-6 shadow-sm border flex flex-col md:flex-row gap-6 transition-all",
-              exc.status === 'Resolved' ? "border-slate-200 opacity-60" : "border-amber-200 shadow-amber-900/5 relative overflow-hidden"
+              "bg-white rounded-xl shadow-sm border overflow-hidden transition-all",
+              exc.status === 'Resolved' ? "border-slate-200 opacity-60" : "border-slate-300 shadow-md"
             )}>
-              {exc.status !== 'Resolved' && (
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
-              )}
-              
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <h3 className="text-lg font-bold text-slate-900">{exc.issue_type}</h3>
+              <div className="p-5 md:p-6 grid md:grid-cols-5 gap-6 items-center relative">
+                {exc.status !== 'Resolved' && (
+                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-gradient-to-b from-amber-400 to-orange-500"></div>
+                )}
+                
+                {/* Issue Info */}
+                <div className="md:col-span-2">
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Issue</p>
+                  <h3 className="text-lg font-bold text-slate-900 leading-tight">{exc.issue_type}</h3>
+                  <div className="mt-2 space-y-1">
+                    {exc.order && (
+                      <p className="text-sm text-slate-600 font-medium">Order: <Link to={`/orders/${exc.order.id}`} className="text-blue-600 hover:underline">{exc.order.order_number}</Link></p>
+                    )}
+                    <p className="text-sm text-slate-500 font-mono">{exc.description}</p>
+                  </div>
+                </div>
+                
+                {/* Owner */}
+                <div>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Owner</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                      <User size={14} />
+                    </div>
+                    <span className="font-semibold text-slate-900">{exc.owner || 'Unassigned'}</span>
+                  </div>
+                </div>
+                
+                {/* Status */}
+                <div>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
                   <span className={clsx(
-                    "px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider",
+                    "inline-flex px-3 py-1 rounded-lg text-sm font-bold uppercase tracking-wide",
                     exc.status === 'Open' && "bg-rose-100 text-rose-800",
                     exc.status === 'Investigating' && "bg-amber-100 text-amber-800",
                     exc.status === 'Resolved' && "bg-emerald-100 text-emerald-800"
@@ -64,42 +88,34 @@ export default function Exceptions() {
                     {exc.status}
                   </span>
                 </div>
-                <p className="text-slate-600 mb-4">{exc.description}</p>
                 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                  {exc.order && (
-                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                      <span className="font-medium text-slate-700">Order:</span>
-                      <Link to={`/orders/${exc.order.id}`} className="font-bold text-blue-600 hover:underline">{exc.order.order_number}</Link>
+                {/* Action & Resolution */}
+                <div className="md:col-span-1 text-right md:text-left">
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2 md:mb-1">Action</p>
+                  {exc.status !== 'Resolved' ? (
+                    <div className="flex flex-col md:items-start items-end gap-2">
+                      <span className="font-medium text-slate-700">{exc.action}</span>
+                      <button 
+                        onClick={() => handleResolve(exc.id)}
+                        className="px-4 py-2 rounded-lg font-bold bg-slate-900 text-white hover:bg-slate-800 transition-colors text-sm flex items-center gap-2"
+                      >
+                        Resolve <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-end md:justify-start gap-2 text-emerald-600 font-bold">
+                      <CheckCircle size={20} />
+                      Resolved
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={16} className="text-slate-400" />
-                    <span>Reported: {format(new Date(exc.time_reported), 'MMM d, h:mm a')}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                      {exc.reported_by.charAt(0)}
-                    </span>
-                    <span>By {exc.reported_by}</span>
-                  </div>
                 </div>
+
               </div>
               
-              <div className="md:w-32 flex flex-col justify-center gap-2 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
-                {exc.status !== 'Resolved' ? (
-                  <button 
-                    onClick={() => handleResolve(exc.id)}
-                    className="w-full px-4 py-2 rounded-xl font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors text-sm text-center"
-                  >
-                    Resolve
-                  </button>
-                ) : (
-                  <div className="text-center text-emerald-600 flex flex-col items-center gap-1">
-                    <CheckCircle size={24} />
-                    <span className="text-sm font-medium">Resolved</span>
-                  </div>
-                )}
+              <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center gap-4 text-xs font-medium text-slate-500">
+                <span className="flex items-center gap-1.5"><Clock size={14} /> Reported {format(new Date(exc.time_reported), 'MMM d, h:mm a')}</span>
+                <span>•</span>
+                <span>By: {exc.reported_by}</span>
               </div>
             </div>
           ))

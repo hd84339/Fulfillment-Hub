@@ -6,7 +6,7 @@ import random
 def seed_db():
     db = database.SessionLocal()
     
-    # Drop and recreate (for clean state)
+    # Drop and recreate
     database.Base.metadata.drop_all(bind=database.engine)
     database.Base.metadata.create_all(bind=database.engine)
     
@@ -16,107 +16,108 @@ def seed_db():
     
     c1 = models.Courier(name="Delhivery")
     c2 = models.Courier(name="BlueDart")
-    c3 = models.Courier(name="Ecom Express")
-    db.add_all([c1, c2, c3])
+    db.add_all([c1, c2])
     db.commit()
     
     # Products
-    products = [
-        models.Product(sku="SHOE-204", name="Nike Running Shoe (Black/Size 9)"),
-        models.Product(sku="SHOE-205", name="Nike Running Shoe (White/Size 10)"),
-        models.Product(sku="TS-102", name="Basic T-Shirt (M)"),
-        models.Product(sku="HD-301", name="Premium Hoodie (L)"),
-        models.Product(sku="BK-501", name="Travel Backpack"),
-        models.Product(sku="MG-001", name="Coffee Mug"),
-        models.Product(sku="KB-999", name="Mechanical Keyboard"),
-        models.Product(sku="MS-888", name="Wireless Mouse")
-    ]
-    db.add_all(products)
+    demo_product = models.Product(sku="SH-204", name="Running Shoe (Black / Size 9)")
+    p2 = models.Product(sku="TS-102", name="Black T-Shirt")
+    p3 = models.Product(sku="HD-301", name="Premium Hoodie")
+    p4 = models.Product(sku="BK-501", name="Travel Backpack")
+    p5 = models.Product(sku="MG-001", name="Coffee Mug")
+    db.add_all([demo_product, p2, p3, p4, p5])
     db.commit()
     
-    # Inventory
-    for p in products:
-        qty_main = random.randint(0, 10)
-        qty_over = random.randint(0, 20)
-        # force some specific scenarios
-        if p.sku == 'TS-102':
-            qty_main = 0
-            qty_over = 15
-        if p.sku == 'BK-501':
-            qty_main = 0
-            qty_over = 0
-        
-        db.add(models.Inventory(product_id=p.id, warehouse_id=wh1.id, quantity=qty_main))
-        db.add(models.Inventory(product_id=p.id, warehouse_id=wh2.id, quantity=qty_over))
+    # Inventory for demo scenario: Main=0, Overflow=12
+    db.add(models.Inventory(product_id=demo_product.id, warehouse_id=wh1.id, quantity=0))
+    db.add(models.Inventory(product_id=demo_product.id, warehouse_id=wh2.id, quantity=12))
+    
+    # TS-102 also low in main
+    db.add(models.Inventory(product_id=p2.id, warehouse_id=wh1.id, quantity=0))
+    db.add(models.Inventory(product_id=p2.id, warehouse_id=wh2.id, quantity=15))
+    
+    # Others
+    db.add(models.Inventory(product_id=p3.id, warehouse_id=wh1.id, quantity=5))
+    db.add(models.Inventory(product_id=p3.id, warehouse_id=wh2.id, quantity=0))
     
     db.commit()
     
-    # Orders
-    statuses = ["Received", "Processing", "Picking", "Packing", "Staged", "Shipped"]
-    priorities = ["Normal", "High"]
-    names = ["Rahul Sharma", "Neha Gupta", "Amit Singh", "Priya Desai", "Vikram Rathore", "Sonia Patel", "Karan Johar", "Riya Sen"]
+    names = ["Rahul Sharma", "Neha Gupta", "Amit Singh", "Priya Desai"]
     
-    orders_list = []
-    for i in range(1, 51):
-        priority = "High" if random.random() > 0.8 else "Normal"
-        status = random.choice(statuses)
-        if i == 1:
-            priority = "High"
-            status = "Picking"
-            due = datetime.now().replace(hour=14, minute=0, second=0, microsecond=0)
-        elif i == 2:
+    # Specific Demo Order ORD-1042
+    demo_order = models.Order(
+        order_number="ORD-1042",
+        customer_name="Demo User",
+        priority="High",
+        status="Picking",
+        due_time=datetime.now() + timedelta(minutes=32),
+        courier_id=c1.id
+    )
+    db.add(demo_order)
+    db.commit()
+    db.add(models.OrderItem(order_id=demo_order.id, product_id=demo_product.id, quantity=1))
+    
+    # Exception for Demo Order
+    db.add(models.ExceptionLog(
+        order_id=demo_order.id,
+        issue_type="Inventory mismatch",
+        description="SKU: SH-204 not found in main warehouse bin A2",
+        status="Open",
+        owner="Warehouse Team",
+        action="Transfer stock",
+        reported_by="System"
+    ))
+    db.commit()
+    
+    # Generate 49 other orders to total 50
+    # 35 normal, 10 priority, 3 at risk, 2 inventory blocked (we already have 1 priority/blocked)
+    # The counts requested: 35 normal, 10 priority, 3 at-risk, 2 inventory blocked. 
+    # Let's just generate a mix to match these totals roughly.
+    
+    for i in range(1, 50):
+        # We need 35 normal, 14 priority (10 + 3 at risk + 1 demo = 14 total priority)
+        # Wait, the breakdown: 35 normal, 10 priority (not at risk), 3 at-risk priority, 2 blocked.
+        if i <= 35:
             priority = "Normal"
-            status = "Packing"
-            due = datetime.now().replace(hour=16, minute=0, second=0, microsecond=0)
-        elif i == 3:
+            due_time = datetime.now() + timedelta(days=random.randint(1, 3))
+            status = random.choice(["Received", "Processing", "Packing", "Staged", "Shipped"])
+        elif i <= 45:
             priority = "High"
-            status = "Processing"
-            due = datetime.now().replace(hour=14, minute=30, second=0, microsecond=0)
+            due_time = datetime.now() + timedelta(hours=random.randint(5, 24))
+            status = random.choice(["Received", "Processing", "Picking", "Packing", "Staged", "Shipped"])
         else:
-            due = datetime.now() + timedelta(hours=random.randint(1, 48))
+            # At risk (high priority, due soon, not shipped)
+            priority = "High"
+            due_time = datetime.now() + timedelta(hours=1)
+            status = random.choice(["Processing", "Picking"])
             
         o = models.Order(
-            order_number=f"ORD-{1041+i}",
+            order_number=f"ORD-{1042+i}",
             customer_name=random.choice(names),
             priority=priority,
             status=status,
-            due_time=due,
-            courier_id=random.choice([c1.id, c2.id, c3.id])
+            due_time=due_time,
+            courier_id=random.choice([c1.id, c2.id])
         )
-        orders_list.append(o)
-    db.add_all(orders_list)
-    db.commit()
-    
-    # Order items
-    for o in orders_list:
-        num_items = random.randint(1, 3)
-        for _ in range(num_items):
-            db.add(models.OrderItem(order_id=o.id, product_id=random.choice(products).id, quantity=random.randint(1, 2)))
+        db.add(o)
+        db.commit()
+        
+        db.add(models.OrderItem(order_id=o.id, product_id=p3.id, quantity=1))
+        
+        # Second inventory blocked exception
+        if i == 49:
+            db.add(models.ExceptionLog(
+                order_id=o.id,
+                issue_type="Wrong variant",
+                description="Packed Black instead of White",
+                status="Open",
+                owner="QA Team",
+                action="Repackage order",
+                reported_by="QA Inspector"
+            ))
             
     db.commit()
-    
-    # Exceptions
-    db.add(models.ExceptionLog(
-        order_id=orders_list[0].id,
-        issue_type="Inventory mismatch",
-        description="SKU SHOE-204 not found in bin A2",
-        status="Open"
-    ))
-    db.add(models.ExceptionLog(
-        order_id=orders_list[5].id,
-        issue_type="Courier pickup delayed",
-        description="Delhivery driver vehicle broke down",
-        status="Investigating"
-    ))
-    db.add(models.ExceptionLog(
-        order_id=orders_list[12].id,
-        issue_type="Wrong variant detected",
-        description="Packed Black instead of White",
-        status="Resolved"
-    ))
-    db.commit()
-    
-    print("Database seeded successfully.")
+    print("Database seeded with Demo Scenario ORD-1042 successfully.")
 
 if __name__ == "__main__":
     seed_db()

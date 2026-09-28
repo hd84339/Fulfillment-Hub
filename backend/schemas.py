@@ -60,17 +60,26 @@ class ExceptionLog(BaseModel):
     description: str
     status: str
     reported_by: str
+    owner: str
+    action: str
     time_reported: datetime
     class Config:
         orm_mode = True
 
+class PipelineStats(BaseModel):
+    Received: int
+    Processing: int
+    Picking: int
+    Packing: int
+    Staged: int
+    Shipped: int
+
 class DashboardStats(BaseModel):
-    orders_today: int
-    pending_processing: int
-    priority_orders: int
+    total_orders: int
     at_risk: int
-    inventory_issues: int
-    ready_for_pickup: int
+    priority: int
+    issues: int
+    pipeline: PipelineStats
 
 class InventoryStatus(BaseModel):
     sku: str

@@ -60,6 +60,8 @@ class ExceptionLog(Base):
     description = Column(String)
     status = Column(String, default="Open")
     reported_by = Column(String, default="Warehouse")
+    owner = Column(String, default="Unassigned")
+    action = Column(String, default="Pending Review")
     time_reported = Column(DateTime, default=datetime.datetime.utcnow)
     
     order = relationship("Order")

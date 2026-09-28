@@ -35,6 +35,11 @@ export default function OrderDetails() {
   if (!order) return null;
 
   const currentStatusIndex = STATUS_FLOW.indexOf(order.status);
+  
+  // At Risk Calculation
+  const isAtRisk = order.priority === 'High' 
+    && !['Staged', 'Shipped'].includes(order.status) 
+    && new Date(order.due_time) <= new Date(Date.now() + 4 * 60 * 60 * 1000);
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -43,6 +48,20 @@ export default function OrderDetails() {
           <ArrowLeft size={16} /> Back to Orders
         </Link>
       </div>
+
+      {isAtRisk && (
+        <div className="mb-6 bg-red-50 border-2 border-red-500 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+            </div>
+            <div>
+              <h3 className="text-red-800 font-black text-lg tracking-wide uppercase">⚠️ AT RISK</h3>
+              <p className="text-red-700 font-medium">Priority order approaching cutoff. Current time: {format(new Date(), 'h:mm a')}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Header */}

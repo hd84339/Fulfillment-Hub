@@ -22,25 +22,35 @@ app.add_middleware(
 
 @app.get("/api/dashboard", response_model=schemas.DashboardStats)
 def get_dashboard_stats(db: Session = Depends(database.get_db)):
-    # Basic counts for the mock dashboard
-    orders_today = db.query(models.Order).count()
-    pending = db.query(models.Order).filter(models.Order.status == 'Processing').count()
+    total_orders = db.query(models.Order).count()
     priority = db.query(models.Order).filter(models.Order.priority == 'High').count()
     
-    # Rough approximation of at risk (priority + pending past certain time - just mock logic)
-    at_risk = db.query(models.Order).filter(models.Order.priority == 'High', models.Order.status.in_(['Processing', 'Picking'])).count()
+    # At risk: High priority, not shipped/staged, due within 4 hours
+    now = datetime.now()
+    four_hours_from_now = now + timedelta(hours=4)
+    at_risk = db.query(models.Order).filter(
+        models.Order.priority == 'High',
+        models.Order.status.not_in(['Staged', 'Shipped']),
+        models.Order.due_time <= four_hours_from_now
+    ).count()
     
-    inventory_issues = db.query(models.ExceptionLog).filter(models.ExceptionLog.issue_type == 'Inventory mismatch', models.ExceptionLog.status != 'Resolved').count()
+    issues = db.query(models.ExceptionLog).filter(models.ExceptionLog.status != 'Resolved').count()
     
-    ready = db.query(models.Order).filter(models.Order.status == 'Staged').count()
+    pipeline = {
+        "Received": db.query(models.Order).filter(models.Order.status == 'Received').count(),
+        "Processing": db.query(models.Order).filter(models.Order.status == 'Processing').count(),
+        "Picking": db.query(models.Order).filter(models.Order.status == 'Picking').count(),
+        "Packing": db.query(models.Order).filter(models.Order.status == 'Packing').count(),
+        "Staged": db.query(models.Order).filter(models.Order.status == 'Staged').count(),
+        "Shipped": db.query(models.Order).filter(models.Order.status == 'Shipped').count(),
+    }
 
     return {
-        "orders_today": orders_today,
-        "pending_processing": pending,
-        "priority_orders": priority,
+        "total_orders": total_orders,
         "at_risk": at_risk,
-        "inventory_issues": inventory_issues,
-        "ready_for_pickup": ready
+        "priority": priority,
+        "issues": issues,
+        "pipeline": pipeline
     }
 
 @app.get("/api/orders", response_model=List[schemas.Order])
