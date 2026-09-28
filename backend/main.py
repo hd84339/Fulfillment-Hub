@@ -6,7 +6,7 @@ from typing import List
 import database
 import models
 import schemas
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 database.Base.metadata.create_all(bind=database.engine)
 
